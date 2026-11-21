@@ -72,9 +72,18 @@ Animações com desaceleração orgânica (`power3.out` / `cubic-bezier(0.16, 1,
 │   ├── css/site.css           # Design system e layout
 │   └── js/site.js             # Sequências de frames, cenas GSAP, Lenis, agendamento
 ├── public/
-│   ├── logo-dlauren.png       # Logo (preloader, navbar, footer, favicon)
+│   ├── logo-dlauren.png       # Logo (preloader, navbar, footer, favicon) — 360px
 │   ├── frames-barber/         # 94 frames WebP 1920×1080 — hero
 │   └── frames-logo/           # 240 frames WebP 1280×720 — encerramento
+├── source/
+│   ├── videos/
+│   │   ├── Barbeiro01.mp4     # Vídeo original do hero (barbeiro em atendimento)
+│   │   └── Barbeiro02.mp4     # Vídeo original do encerramento (logo D’Lauren)
+│   └── logo-dlauren-680.png   # Logo em resolução cheia, extraída do vídeo
+├── tools/
+│   ├── extract-frames.sh      # Gera os frames WebP a partir dos vídeos
+│   ├── extract_logo.py        # Gera o PNG transparente da logo a partir do vídeo
+│   └── track_cta.py           # Mede a posição do botão gravado no vídeo (CTA_TRACK)
 └── docs/                      # Imagens deste README e da prévia de compartilhamento
 ```
 
@@ -105,23 +114,33 @@ npx serve .
 
 Depois acesse `http://localhost:8080`.
 
-## Regenerar os frames
+## Ferramentas — recriar os assets a partir dos vídeos
 
-Com o [FFmpeg](https://ffmpeg.org/) instalado, a partir dos vídeos originais:
+Tudo o que o site usa pode ser gerado de novo a partir de `source/videos/`. Requisitos: [FFmpeg](https://ffmpeg.org/) no PATH e, para os scripts Python, `pip install pillow numpy`. Rode os comandos na raiz do projeto.
+
+**1. Frames WebP** (24 fps, qualidade 82; hero em 1920px, logo na resolução nativa de 1280px):
 
 ```bash
-# Hero — barbeiro em atendimento
-ffmpeg -i Barbeiro01.mp4 -vf "fps=24,scale=1920:-2:flags=lanczos" \
-  -c:v libwebp -quality 82 -compression_level 6 -preset picture \
-  public/frames-barber/frame_%04d.webp
-
-# Encerramento — logo D’Lauren (resolução nativa 1280px)
-ffmpeg -i Barbeiro02.mp4 -vf "fps=24,scale=1280:-2:flags=lanczos" \
-  -c:v libwebp -quality 82 -compression_level 6 -preset picture \
-  public/frames-logo/frame_%04d.webp
+bash tools/extract-frames.sh
+# ou com outros vídeos:
+bash tools/extract-frames.sh caminho/hero.mp4 caminho/logo.mp4
 ```
 
-Se a quantidade de arquivos mudar, atualize `HERO_TOTAL_FRAMES` e `CLOSING_TOTAL_FRAMES`. Se o vídeo da logo for trocado, refaça também o rastreamento do botão (`CTA_TRACK`).
+O script apaga e recria `public/frames-barber/` e `public/frames-logo/` e mostra quantos frames gerou. Se o número mudar, atualize `HERO_TOTAL_FRAMES` e `CLOSING_TOTAL_FRAMES`.
+
+**2. Logo transparente** (escolhe o quadro mais limpo do vídeo, remove partículas e recupera o alfa do fundo preto):
+
+```bash
+python tools/extract_logo.py --full source/logo-dlauren-680.png
+```
+
+**3. Posição do botão gravado no vídeo da logo** (gera a constante `CTA_TRACK` para colar em `assets/js/site.js`):
+
+```bash
+python tools/track_cta.py
+```
+
+O botão do vídeo entra com um fade antes de o texto ficar legível; por isso o primeiro item de `CTA_TRACK` no site (frame `192`) foi extrapolado a partir do movimento dos frames seguintes. Se o vídeo da logo for trocado, rode o script e revise esse primeiro item.
 
 ## Como funciona por dentro
 
@@ -134,7 +153,7 @@ Se a quantidade de arquivos mudar, atualize `HERO_TOTAL_FRAMES` e `CLOSING_TOTAL
 
 Desenvolvido com muito **Red Bull Zero** por **Dev. Jhosue Tortolero** — **Jhosue Lab’s**.
 
-Marca, logotipo, vídeos e imagens pertencem à **Barbearia D’Lauren**. O uso desses materiais fora deste site depende de autorização da barbearia.
+Marca, logotipo, vídeos (inclusive os originais em `source/videos/`) e imagens pertencem à **Barbearia D’Lauren**. O uso desses materiais fora deste site depende de autorização da barbearia.
 
 <div align="center">
 

@@ -7,6 +7,5 @@ desktop.ini
 .vscode/
 .idea/
 
-# Vídeos-fonte (pesados; os frames já estão em public/)
-*.mp4
-*.mov
+# Python
+__pycache__/
