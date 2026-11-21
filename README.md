@@ -36,7 +36,8 @@ O site conta essa história como um filme: o visitante rola a página e controla
 | **CTA rastreado no vídeo** | O vídeo da logo já traz um botão "Agende seu Corte" gravado. A posição dele foi medida quadro a quadro e o botão real em HTML (clicável e acessível) o cobre durante todo o movimento de câmera. |
 | **Agendamento no WhatsApp** | Formulário com serviço, profissional, dia e horário. Os horários seguem o funcionamento real e avisam quando o período é de maior procura (quinta à tarde e sexta). A mensagem já sai formatada para `wa.me`. |
 | **Status "aberto agora"** | Calculado no fuso de Recife (UTC−3), com o dia de hoje destacado na tabela de horários. |
-| **Movimento reduzido** | Com `prefers-reduced-motion`, o site troca as animações por quadros estáticos, sem perder conteúdo nem CTAs. |
+| **Feito para celular** | Em telas em pé, o site carrega versões recortadas dos mesmos quadros (mesma nitidez, ~45% menos memória e download), essencial para a rolagem fluir no iPhone e no Android. |
+| **Movimento reduzido** | Com "Reduzir movimento" ligado no aparelho (`prefers-reduced-motion`), o filme continua respondendo à rolagem, porque cada quadro é controlado pelo próprio visitante, mas saem a rolagem suave, os deslizamentos e as animações automáticas. |
 | **Fusão perfeita com o fundo** | Os frames têm preto puro; o canvas usa composição `lighten` para fundi-los ao `#0A0A0B` da página, sem emenda visível. |
 
 ## Galeria
@@ -74,7 +75,9 @@ Animações com desaceleração orgânica (`power3.out` / `cubic-bezier(0.16, 1,
 ├── public/
 │   ├── logo-dlauren.png       # Logo (preloader, navbar, footer, favicon) — 360px
 │   ├── frames-barber/         # 94 frames WebP 1920×1080 — hero
-│   └── frames-logo/           # 240 frames WebP 1280×720 — encerramento
+│   ├── frames-barber-mobile/  # 94 frames 640×1080 — hero no celular em pé (recorte central)
+│   ├── frames-logo/           # 240 frames WebP 1280×720 — encerramento
+│   └── frames-logo-mobile/    # 240 frames 760×720 — encerramento no celular em pé
 ├── source/
 │   ├── videos/
 │   │   ├── Barbeiro01.mp4     # Vídeo original do hero (barbeiro em atendimento)
@@ -126,7 +129,7 @@ bash tools/extract-frames.sh
 bash tools/extract-frames.sh caminho/hero.mp4 caminho/logo.mp4
 ```
 
-O script apaga e recria `public/frames-barber/` e `public/frames-logo/` e mostra quantos frames gerou. Se o número mudar, atualize `HERO_TOTAL_FRAMES` e `CLOSING_TOTAL_FRAMES`.
+O script apaga e recria `public/frames-barber/`, `public/frames-logo/` e as versões `-mobile` (recortes centrais usados no celular em pé) e mostra quantos frames gerou. Se o número mudar, atualize `HERO_TOTAL_FRAMES` e `CLOSING_TOTAL_FRAMES`.
 
 **2. Logo transparente** (escolhe o quadro mais limpo do vídeo, remove partículas e recupera o alfa do fundo preto):
 
@@ -146,7 +149,7 @@ O botão do vídeo entra com um fade antes de o texto ficar legível; por isso o
 
 - **Lenis + ScrollTrigger**: o Lenis é atualizado pelo `gsap.ticker` e repassa cada rolagem ao `ScrollTrigger.update`. As cenas são criadas depois que fontes e frames do hero carregam, e a página usa `scrollbar-gutter: stable` para que a largura medida pelos pins nunca mude.
 - **Frames**: cada sequência mantém um cache de imagens decodificadas e, se um quadro ainda não chegou, desenha o mais próximo disponível.
-- **Encerramento no celular**: a escala do vídeo é limitada pela largura para a logo caber inteira, e as bordas do quadro se dissolvem no fundo.
+- **Celular**: `site.js` detecta tela em pé (largura < 768px) e troca para `frames-*-mobile`. No encerramento, a escala é limitada pela largura para a logo caber inteira, e o botão rastreado é deslocado pelo recorte (`offsetX`).
 - **Sem JavaScript**: conteúdo, links e contato continuam acessíveis; o agendamento aponta direto para o WhatsApp.
 
 ## Créditos

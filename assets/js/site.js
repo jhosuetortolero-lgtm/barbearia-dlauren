@@ -15,18 +15,31 @@ const CLOSING_SECTION_VH = 320;
 const heroFrameSrc = (i) => `./public/frames-barber/frame_${String(i + 1).padStart(4, '0')}.webp`;
 const closingFrameSrc = (i) => `./public/frames-logo/frame_${String(i + 1).padStart(4, '0')}.webp`;
 
+// Celular em pé: os mesmos frames recortados ao centro (mesma nitidez, ~45% menos memória).
+const heroFrameSrcMobile = (i) => `./public/frames-barber-mobile/frame_${String(i + 1).padStart(4, '0')}.webp`;
+const closingFrameSrcMobile = (i) => `./public/frames-logo-mobile/frame_${String(i + 1).padStart(4, '0')}.webp`;
+
 (() => {
   'use strict';
 
   const root = document.documentElement;
   const hasGSAP = typeof window.gsap !== 'undefined' && typeof window.ScrollTrigger !== 'undefined';
   const hasLenis = typeof window.Lenis === 'function';
-  const reduceMotion = root.classList.contains('rm') || !hasGSAP;
+  // Sem GSAP (CDN bloqueado): modo estático com o mesmo conteúdo.
+  const staticMode = !hasGSAP;
+  // "Reduzir movimento" do sistema: o filme continua respondendo à rolagem (o usuário controla
+  // cada quadro), mas saem a rolagem suave, os deslizamentos e as animações automáticas.
+  const calm = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
   const BG = '#0A0A0B';
   const BG_CLEAR = 'rgba(10, 10, 11, 0)';
-  const HERO_SIZE = { w: 1920, h: 1080 };
-  const CLOSING_SIZE = { w: 1280, h: 720 };
+  const useMobileFrames = window.innerWidth < 768 && window.innerHeight > window.innerWidth;
+  const HERO_SET = useMobileFrames
+    ? { src: heroFrameSrcMobile, size: { w: 640, h: 1080 } }    // recorte x 610–1250 do 1920×1080
+    : { src: heroFrameSrc, size: { w: 1920, h: 1080 } };
+  const CLOSING_SET = useMobileFrames
+    ? { src: closingFrameSrcMobile, size: { w: 760, h: 720, offsetX: 260 } } // recorte x 260–1020
+    : { src: closingFrameSrc, size: { w: 1280, h: 720, offsetX: 0 } };
 
   // Funcionamento (Recife, UTC−3 sem horário de verão). Índice = getDay(): 0 = domingo.
   const HOURS = { 0: [9, 12], 1: [14, 19.5], 2: [9, 19.5], 3: [9, 19.5], 4: [9, 19.5], 5: [9, 19.5], 6: [9, 19.5] };
@@ -232,6 +245,14 @@ const closingFrameSrc = (i) => `./public/frames-logo/frame_${String(i + 1).padSt
     return { s, x: (cw - iw * s) * fx, y: (ch - ih * s) * fy };
   };
 
+  // Recorte vertical do hero (celular): cover em pé; se o aparelho girar, mostra a faixa inteira
+  // na altura da tela e as laterais se dissolvem no fundo.
+  const heroMobileFit = (iw, ih, cw, ch) => {
+    const s = cw > ch ? ch / ih : Math.max(cw / iw, ch / ih);
+    return { s, x: (cw - iw * s) / 2, y: (ch - ih * s) / 2 };
+  };
+  const heroFit = useMobileFrames ? heroMobileFit : coverFit(0.48, 0.5);
+
   // Logo inteira sempre visível: no desktop quase cover; no celular limitada pela largura.
   // 720 px = largura da logo no auge do zoom do vídeo (coordenadas do frame 1280×720).
   const closingFit = (iw, ih, cw, ch) => {
@@ -265,7 +286,7 @@ const closingFrameSrc = (i) => `./public/frames-logo/frame_${String(i + 1).padSt
     const { s, x, y } = layout;
     const W = (w + CTA_PAD_X) * s;
     const H = (h + CTA_PAD_Y) * s;
-    const L = x + cx * s - W / 2;
+    const L = x + (cx - CLOSING_SET.size.offsetX) * s - W / 2;
     const T = y + (cy + CTA_SHIFT_Y) * s - H / 2;
     ctaAnchor.style.width = `${W.toFixed(1)}px`;
     ctaAnchor.style.height = `${H.toFixed(1)}px`;
@@ -331,7 +352,7 @@ const closingFrameSrc = (i) => `./public/frames-logo/frame_${String(i + 1).padSt
     document.body.style.overflow = open ? 'hidden' : '';
     if (open) {
       if (lenis) lenis.stop();
-      if (hasGSAP && !reduceMotion) {
+      if (hasGSAP && !calm) {
         gsap.fromTo($$('.mobile-menu__links a, .mobile-menu__foot', menu),
           { y: 28, autoAlpha: 0 },
           { y: 0, autoAlpha: 1, duration: 0.9, ease: 'power3.out', stagger: 0.06 });
@@ -348,7 +369,10 @@ const closingFrameSrc = (i) => `./public/frames-logo/frame_${String(i + 1).padSt
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && !menu.hidden) { setMenu(false); toggle.focus(); }
     });
-    window.matchMedia('(min-width: 1024px)').addEventListener('change', (e) => { if (e.matches) setMenu(false); });
+    const desktop = window.matchMedia('(min-width: 1024px)');
+    const onDesktop = (e) => { if (e.matches) setMenu(false); };
+    // Safari < 14 só conhece addListener
+    if (desktop.addEventListener) desktop.addEventListener('change', onDesktop); else desktop.addListener(onDesktop);
   }
 
   // ==========================================================================
@@ -562,31 +586,39 @@ const closingFrameSrc = (i) => `./public/frames-logo/frame_${String(i + 1).padSt
     $$('[data-year]').forEach((el) => { el.textContent = String(new Date().getFullYear()); });
     updateOpenStatus();
     setInterval(updateOpenStatus, 60 * 1000);
-    initMenu();
-    initAnchors();
-    initBooking();
+    // Cada parte isolada: um erro num navegador antigo não pode impedir o filme de iniciar.
+    [initMenu, initAnchors, initBooking].forEach((fn) => {
+      try { fn(); } catch (err) { console.error('[D’Lauren]', fn.name, err); }
+    });
   }
 
   // ==========================================================================
-  // Modo estático (movimento reduzido ou GSAP indisponível)
+  // Modo estático (só quando GSAP não carrega, ou se a animação falhar)
   // ==========================================================================
   function bootStatic() {
     root.classList.add('rm');
+    root.classList.remove('is-loading');
     const heroStill = Math.round((HERO_TOTAL_FRAMES - 1) * 0.6);
-    hero = new FrameSequence({
-      canvas: $('#hero-canvas'), count: HERO_TOTAL_FRAMES, src: heroFrameSrc,
-      size: HERO_SIZE, fit: coverFit(0.48, 0.5),
-    });
+    if (!hero) {
+      hero = new FrameSequence({
+        canvas: $('#hero-canvas'), count: HERO_TOTAL_FRAMES, src: HERO_SET.src,
+        size: HERO_SET.size, fit: heroFit,
+      });
+    }
     hero.set(heroStill);
     hero.load([heroStill]);
 
-    closing = new FrameSequence({
-      canvas: $('#closing-canvas'), count: CLOSING_TOTAL_FRAMES, src: closingFrameSrc,
-      size: CLOSING_SIZE, fit: closingFit, blend: true, onRender: placeCTA,
-    });
+    if (!closing) {
+      closing = new FrameSequence({
+        canvas: $('#closing-canvas'), count: CLOSING_TOTAL_FRAMES, src: CLOSING_SET.src,
+        size: CLOSING_SET.size, fit: closingFit, blend: true, onRender: placeCTA,
+      });
+    }
     closingRequested = true;
     closing.set(CLOSING_TOTAL_FRAMES - 1);
     closing.load([CLOSING_TOTAL_FRAMES - 1]);
+    hero.resize();
+    closing.resize();
 
     clearTimeout(window.__bootTimer);
     const pre = $('#preloader');
@@ -609,12 +641,12 @@ const closingFrameSrc = (i) => `./public/frames-logo/frame_${String(i + 1).padSt
     tl.fromTo(shade, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.08 }, at - 0.01);
     tl.set(block, { autoAlpha: 1 }, at);
     tl.fromTo(block.children,
-      { y: 64, autoAlpha: 0 },
-      { y: 0, autoAlpha: 1, duration: 0.07, ease: 'power3.out', stagger: 0.012 }, at);
+      { y: calm ? 0 : 64, autoAlpha: 0 },
+      { y: 0, autoAlpha: 1, duration: 0.07, ease: 'power3.out', stagger: calm ? 0 : 0.012 }, at);
   }
 
   function storyOut(tl, block, shade, at) {
-    tl.to(block.children, { y: -40, autoAlpha: 0, duration: 0.06, ease: 'power2.in', stagger: 0.008 }, at);
+    tl.to(block.children, { y: calm ? 0 : -40, autoAlpha: 0, duration: 0.06, ease: 'power2.in', stagger: calm ? 0 : 0.008 }, at);
     tl.to(shade, { autoAlpha: 0, duration: 0.08 }, at + 0.005);
     tl.set(block, { autoAlpha: 0 }, at + 0.075);
   }
@@ -642,7 +674,7 @@ const closingFrameSrc = (i) => `./public/frames-logo/frame_${String(i + 1).padSt
     heroTl.to(heroState, { frame: HERO_TOTAL_FRAMES - 1, duration: 1, onUpdate: () => hero.set(heroState.frame) }, 0);
     heroTl.to('[data-cue]', { autoAlpha: 0, duration: 0.04 }, 0.01);
     // 0% → 28%
-    heroTl.to(s1, { autoAlpha: 0, y: -56, duration: 0.08, ease: 'power2.in' }, 0.2);
+    heroTl.to(s1, { autoAlpha: 0, y: calm ? 0 : -56, duration: 0.08, ease: 'power2.in' }, 0.2);
     heroTl.to('[data-shade="center"]', { autoAlpha: 0, duration: 0.08 }, 0.2);
     // 35% → 62% (esquerda)
     storyIn(heroTl, s2, '[data-shade="left"]', 0.35);
@@ -670,8 +702,11 @@ const closingFrameSrc = (i) => `./public/frames-logo/frame_${String(i + 1).padSt
     });
     closeTl.to(closeState, { frame: CLOSING_TOTAL_FRAMES - 1, duration: 1, onUpdate: () => closing.set(closeState.frame) }, 0);
     // 72% → 100%: CTA surge sob a logo
-    closeTl.fromTo('#showcase-cta', { autoAlpha: 0, y: 18 }, { autoAlpha: 1, y: 0, duration: 0.08, ease: 'power3.out' }, 0.72);
+    closeTl.fromTo('#showcase-cta', { autoAlpha: 0, y: calm ? 0 : 18 }, { autoAlpha: 1, y: 0, duration: 0.08, ease: 'power3.out' }, 0.72);
     closeTl.set({}, {}, 1);
+
+    // Movimento reduzido: conteúdo editorial aparece pronto, sem deslizar nem contar.
+    if (calm) { ScrollTrigger.sort(); return; }
 
     // --- Revelações editoriais ---------------------------------------------
     $$('[data-reveal]').forEach((el) => {
@@ -715,7 +750,7 @@ const closingFrameSrc = (i) => `./public/frames-logo/frame_${String(i + 1).padSt
     if (parallax) {
       gsap.fromTo(parallax, { yPercent: -5 }, {
         yPercent: 5, ease: 'none',
-        scrollTrigger: { trigger: parallax.parentElement, start: 'top bottom', end: 'bottom top', scrub: true },
+        scrollTrigger: { trigger: parallax.closest('.casa__frame'), start: 'top bottom', end: 'bottom top', scrub: true },
       });
     }
 
@@ -737,20 +772,28 @@ const closingFrameSrc = (i) => `./public/frames-logo/frame_${String(i + 1).padSt
       if (lenis) lenis.scrollTo(0, { immediate: true, force: true });
       ScrollTrigger.update();
     }
+    const unlock = () => {
+      clearTimeout(window.__bootTimer);
+      pre.remove();
+      root.classList.remove('is-loading');
+      if (lenis) lenis.start();
+      ScrollTrigger.refresh();
+      if (target) {
+        loadClosing();
+        if (lenis) lenis.scrollTo(target, { offset: -navHeight(), immediate: true, force: true });
+        else target.scrollIntoView();
+      }
+    };
+
+    if (calm) {
+      gsap.timeline().to(pre, { autoAlpha: 0, duration: 0.5, ease: 'power2.out' }).add(unlock);
+      return;
+    }
+
     const tl = gsap.timeline();
     tl.to('.preloader__inner', { autoAlpha: 0, y: -12, duration: 0.6, ease: 'power2.in' })
       .to(pre, { yPercent: -100, duration: 1.15, ease: 'expo.inOut' }, '-=0.1')
-      .add(() => {
-        clearTimeout(window.__bootTimer);
-        pre.remove();
-        if (lenis) lenis.start();
-        ScrollTrigger.refresh();
-        if (target) {
-          loadClosing();
-          if (lenis) lenis.scrollTo(target, { offset: -navHeight(), immediate: true, force: true });
-          else target.scrollIntoView();
-        }
-      })
+      .add(unlock)
       .from('#nav', { yPercent: -100, autoAlpha: 0, duration: 1.1, ease: 'power3.out' }, '-=0.55')
       .from($('[data-story="1"]').children, { y: 44, autoAlpha: 0, duration: 1.4, ease: 'power3.out', stagger: 0.1 }, '-=0.95')
       .from('[data-cue]', { autoAlpha: 0, duration: 1 }, '-=0.7');
@@ -761,16 +804,16 @@ const closingFrameSrc = (i) => `./public/frames-logo/frame_${String(i + 1).padSt
     ScrollTrigger.config({ ignoreMobileResize: true });
     if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
     window.scrollTo(0, 0);
-    initLenis();
+    if (!calm) initLenis();
 
     hero = new FrameSequence({
-      canvas: $('#hero-canvas'), count: HERO_TOTAL_FRAMES, src: heroFrameSrc,
-      size: HERO_SIZE, fit: coverFit(0.48, 0.5),
+      canvas: $('#hero-canvas'), count: HERO_TOTAL_FRAMES, src: HERO_SET.src,
+      size: HERO_SET.size, fit: heroFit,
     });
     hero.set(0);
     closing = new FrameSequence({
-      canvas: $('#closing-canvas'), count: CLOSING_TOTAL_FRAMES, src: closingFrameSrc,
-      size: CLOSING_SIZE, fit: closingFit, blend: true, onRender: placeCTA,
+      canvas: $('#closing-canvas'), count: CLOSING_TOTAL_FRAMES, src: CLOSING_SET.src,
+      size: CLOSING_SET.size, fit: closingFit, blend: true, onRender: placeCTA,
     });
 
     // Preloader: só os frames do hero entram na conta.
@@ -803,7 +846,7 @@ const closingFrameSrc = (i) => `./public/frames-logo/frame_${String(i + 1).padSt
 
   // ==========================================================================
   initStatic();
-  if (reduceMotion) bootStatic();
+  if (staticMode) bootStatic();
   else bootMotion().catch((err) => {
     console.error('[D’Lauren] Falha na animação, usando modo estático:', err);
     if (lenis) { lenis.destroy(); lenis = null; }

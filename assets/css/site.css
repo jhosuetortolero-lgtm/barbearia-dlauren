@@ -29,6 +29,9 @@
 /* Reserva o espaço da barra de rolagem: a largura não muda quando o Lenis trava a página,
    então os pins do ScrollTrigger medem sempre a mesma largura. */
 html { background: var(--bg); scrollbar-gutter: stable; }
+/* Trava a rolagem enquanto o preloader cobre a página (vale também sem Lenis e no toque). */
+html.is-loading, html.is-loading body { overflow: hidden; }
+html.boot-timeout, html.boot-timeout body { overflow: auto; }
 body {
   background: var(--bg);
   color: var(--ink);

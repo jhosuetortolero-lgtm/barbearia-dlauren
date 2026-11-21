@@ -21,18 +21,18 @@
     (function () {
       var root = document.documentElement;
       root.classList.remove('no-js');
-      root.classList.add('js');
+      root.classList.add('js', 'is-loading');
       if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
-      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) root.classList.add('rm');
       // Rede de segurança: se algo travar o carregamento, o conteúdo aparece mesmo assim.
-      window.__bootTimer = setTimeout(function () { root.classList.add('boot-timeout'); }, 20000);
+      window.__bootTimer = setTimeout(function () { root.classList.add('boot-timeout'); }, 30000);
     })();
   </script>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..700;1,6..96,400..700&family=Plus+Jakarta+Sans:wght@300;400;500;600&display=swap">
-  <link rel="preload" as="image" href="./public/frames-barber/frame_0001.webp">
+  <link rel="preload" as="image" href="./public/frames-barber/frame_0001.webp" media="(min-width: 768px), (orientation: landscape)">
+  <link rel="preload" as="image" href="./public/frames-barber-mobile/frame_0001.webp" media="(max-width: 767px) and (orientation: portrait)">
 
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <script>
@@ -184,7 +184,10 @@
 
           <figure class="col-span-12 lg:col-span-6 lg:col-start-7 casa__figure" data-reveal>
             <div class="casa__frame">
-              <img src="./public/frames-barber/frame_0060.webp" alt="Barbeiro de barba grisalha fazendo um degradê na máquina, em salão de luz âmbar" width="1920" height="1080" loading="lazy" decoding="async" data-parallax>
+              <picture>
+                <source media="(max-width: 767px) and (orientation: portrait)" srcset="./public/frames-barber-mobile/frame_0060.webp">
+                <img src="./public/frames-barber/frame_0060.webp" alt="Barbeiro de barba grisalha fazendo um degradê na máquina, em salão de luz âmbar" width="1920" height="1080" loading="lazy" decoding="async" data-parallax>
+              </picture>
             </div>
             <figcaption class="casa__caption"><span class="tnum">Fig. 01</span> Degradê na máquina, acabamento na navalha.</figcaption>
           </figure>
